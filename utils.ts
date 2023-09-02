@@ -1,4 +1,4 @@
-import {h, defineAsyncComponent, defineComponent, ref, onMounted, AsyncComponentLoader, Component} from 'vue';
+import {h, defineAsyncComponent, defineComponent, shallowRef, onMounted, AsyncComponentLoader, Component} from 'vue';
 
 type ComponentResolver = (component: Component) => void;
 
@@ -10,8 +10,8 @@ export const lazyLoadComponentIfVisible = ({componentLoader, loadingComponent, e
     timeout?: number;
 }) => {
     let resolveComponent: ComponentResolver;
-
     return defineAsyncComponent({
+        suspensible: false,
         // the loader function
         loader: () => {
             return new Promise((resolve) => {
@@ -26,12 +26,13 @@ export const lazyLoadComponentIfVisible = ({componentLoader, loadingComponent, e
             setup() {
                 // We create a ref to the root element of
                 // the loading component
-                const elRef = ref();
+                const elRef = shallowRef();
 
                 async function loadComponent() {
                     // `resolveComponent()` receives the
                     // the result of the dynamic `import()`
                     // that is returned from `componentLoader()`
+                    console.debug('loadComponent');
                     const component = await componentLoader();
                     resolveComponent(component);
                 }
@@ -51,19 +52,18 @@ export const lazyLoadComponentIfVisible = ({componentLoader, loadingComponent, e
 
                         // We cleanup the observer when the
                         // component is not visible anymore
-                        observer.unobserve(elRef.value);
+                        observer.unobserve(elRef.value.$el);
                         await loadComponent();
                     });
 
                     // We observe the root of the
                     // mounted loading component to detect
                     // when it becomes visible
-                    observer.observe(elRef.value);
+                    observer.observe(elRef.value.$el);
                 });
+                console.debug('loadingComponent setup');
 
-                return () => {
-                    return h('div', {ref: elRef}, loadingComponent);
-                };
+                return () => h(loadingComponent, {ref: elRef});
             },
         }),
         // Delay before showing the loading component. Default: 200ms.
